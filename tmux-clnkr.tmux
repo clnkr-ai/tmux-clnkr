@@ -1,2 +1,7 @@
-# tmux-clnkr TPM entrypoint.
-run-shell 'CURRENT_FILE="#{current_file}"; PLUGIN_DIR=$(cd "$(dirname "$CURRENT_FILE")" && pwd); "$PLUGIN_DIR/scripts/install.zsh" "$PLUGIN_DIR"'
+#!/usr/bin/env zsh
+
+emulate -L zsh
+set -eu
+
+PLUGIN_DIR=${0:A:h}
+"$PLUGIN_DIR/scripts/install.zsh" "$PLUGIN_DIR"
