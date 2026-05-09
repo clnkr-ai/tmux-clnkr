@@ -84,6 +84,7 @@ shell_quote_words() {
 
 session_has_live_pane() {
   emulate -L zsh
+  set +e
   local session_name=$1
   local pane state
   local pane_dead pane_pid

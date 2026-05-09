@@ -140,6 +140,11 @@ open_popup
 wait_for 'stale running wrapper was not recreated from prefix+A' agent_has_live_pane
 wait_for 'recreated agent after stale running wrapper did not resume' agent_output_has 'fake-clnkr args=--continue model=gpt-5.5'
 
+tmux_test set-option -gq @clnkr-popup-agent-state exited
+open_popup
+wait_for 'exited wrapper was not recreated from prefix+A' agent_has_live_pane
+wait_for 'recreated agent after exited wrapper did not resume' agent_output_has 'fake-clnkr args=--continue model=gpt-5.5'
+
 tmux_test kill-session -t __clnkr_agent
 open_popup_without_provider_env
 wait_for 'agent did not read tmux provider environment' agent_has_live_pane
