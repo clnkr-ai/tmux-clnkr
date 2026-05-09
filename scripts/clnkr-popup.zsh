@@ -133,10 +133,8 @@ agent_mode() {
   exit_status=$?
   trap - INT
   tmux set-option -gq @clnkr-popup-agent-state exited 2>/dev/null || true
-
-  print -u2 -r -- "tmux-clnkr: clnkr exited with status $exit_status."
-  print -u2 -r -- 'Close this shell; prefix-A will recreate the clnkr popup.'
-  exec zsh -f
+  tmux detach-client -s "${TMUX_CLNKR_SESSION_NAME:-__clnkr_agent}" 2>/dev/null || true
+  return "$exit_status"
 }
 
 append_export() {
@@ -179,6 +177,7 @@ write_agent_env_file() {
   {
     print -r -- "typeset -gx TMUX_CLNKR_FULL_SEND=$(printf '%q' "$full_send")"
     print -r -- "typeset -gx TMUX_CLNKR_RESUME=$(printf '%q' "$resume")"
+    print -r -- "typeset -gx TMUX_CLNKR_SESSION_NAME=$(printf '%q' "$session_name")"
   } >"$env_file"
   append_export "$env_file" PATH "$PATH"
 

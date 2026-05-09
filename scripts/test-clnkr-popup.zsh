@@ -39,6 +39,10 @@ has_attached_client() {
   [[ -n $(tmux_test list-clients -F '#{client_name}' 2>/dev/null) ]]
 }
 
+agent_has_client() {
+  tmux_test list-clients -F '#{client_session}' 2>/dev/null | rg -qx '__clnkr_agent'
+}
+
 open_popup() {
   local client_name
 
@@ -62,6 +66,10 @@ open_popup_without_provider_env() {
 
 agent_has_live_pane() {
   tmux_test list-panes -t __clnkr_agent -F '#{pane_dead}' 2>/dev/null | rg -qx '0'
+}
+
+test_agent_exited() {
+  [[ $(tmux_test show-option -gqv @clnkr-popup-agent-state) == exited ]]
 }
 
 agent_output_has() {
@@ -126,15 +134,15 @@ tmux_test capture-pane -pt __clnkr_agent -S -20 | rg -Fq 'clnkr-popup.zsh --agen
 tmux_test capture-pane -pt __clnkr_agent -S -20 | rg -Fq '/tmp/tmux-clnkr-env' && fail 'agent env file leaked into popup'
 
 tmux_test send-keys -t __clnkr_agent C-c
-wait_for 'ctrl-c did not leave exit message visible' agent_output_has 'tmux-clnkr: clnkr exited with status 130.'
-[[ $(tmux_test list-panes -t __clnkr_agent -F '#{pane_dead}') == 0 ]] || fail 'ctrl-c killed the wrapper pane'
+wait_for 'ctrl-c did not mark agent exited' test_agent_exited
 [[ $(tmux_test show-option -gqv @clnkr-popup-agent-state) == exited ]] || fail 'ctrl-c did not mark agent exited'
+agent_has_client && fail 'ctrl-c left popup client attached'
 open_popup
 wait_for 'ctrl-c session was not recreated from prefix+A' agent_has_live_pane
 wait_for 'recreated agent after ctrl-c did not resume' agent_output_has 'fake-clnkr args=--continue model=gpt-5.5'
 
 tmux_test send-keys -t __clnkr_agent C-c
-wait_for 'stale wrapper did not show exit message' agent_output_has 'tmux-clnkr: clnkr exited with status 130.'
+wait_for 'stale wrapper did not exit' test_agent_exited
 tmux_test set-option -gq @clnkr-popup-agent-state running
 open_popup
 wait_for 'stale running wrapper was not recreated from prefix+A' agent_has_live_pane
