@@ -46,6 +46,13 @@ open_popup() {
   tmux_test run-shell -b "TMUX_CLNKR_CLIENT=$client_name $repo_root/scripts/clnkr-popup.zsh"
 }
 
+open_popup_sync() {
+  local client_name
+
+  client_name=$(tmux_test list-clients -F '#{client_name}' | head -n 1)
+  tmux_test run-shell "TMUX_CLNKR_CLIENT=$client_name $repo_root/scripts/clnkr-popup.zsh"
+}
+
 agent_has_live_pane() {
   tmux_test list-panes -t __clnkr_agent -F '#{pane_dead}' 2>/dev/null | rg -qx '0'
 }
@@ -62,6 +69,18 @@ mkdir -p "$fakebin"
   print -r -- 'emulate -L zsh'
   print -r -- 'set -eu'
   print -r -- 'print -r -- "fake-clnkr args=$* model=${CLNKR_MODEL:-}"'
+  print -r -- 'if [[ $* == --list-sessions ]]; then'
+  print -r -- '  if [[ ${TMUX_CLNKR_FAKE_NO_SESSIONS:-off} == on ]]; then'
+  print -r -- '    print -r -- "No sessions found for this project."'
+  print -r -- '  else'
+  print -r -- '    print -r -- "session-1"'
+  print -r -- '  fi'
+  print -r -- '  exit 0'
+  print -r -- 'fi'
+  print -r -- 'if [[ ${TMUX_CLNKR_FAKE_NO_SESSIONS:-off} == on && $* == --continue ]]; then'
+  print -r -- '  print -u2 -r -- "Error: no session found for this project."'
+  print -r -- '  exit 1'
+  print -r -- 'fi'
   print -r -- 'trap "exit 0" INT TERM'
   print -r -- 'while true; do sleep 1; done'
 } >"$fakebin/clnkr"
@@ -94,5 +113,16 @@ wait_for 'agent pane did not die after C-c' agent_has_dead_pane
 open_popup
 wait_for 'dead agent was not recreated from prefix+A' agent_has_live_pane
 tmux_test capture-pane -pt __clnkr_agent -S -5 | rg -Fq 'fake-clnkr args=--continue model=gpt-5.5' || fail 'recreated agent did not resume'
+
+tmux_test kill-session -t __clnkr_agent
+tmux_test set-environment -g TMUX_CLNKR_FAKE_NO_SESSIONS on
+open_popup
+wait_for 'agent did not fall back after missing resume session' agent_has_live_pane
+tmux_test capture-pane -pt __clnkr_agent -S -5 | rg -Fq 'fake-clnkr args= model=gpt-5.5' || fail 'agent did not fall back to plain clnkr'
+tmux_test set-environment -gu TMUX_CLNKR_FAKE_NO_SESSIONS
+
+tmux_test kill-session -t __clnkr_agent
+tmux_test run-shell -b "sleep 0.2; tmux -L $server -f /dev/null kill-session -t __clnkr_agent"
+open_popup_sync || fail 'agent exit leaked as clnkr-popup.zsh exit 1'
 
 print -r -- 'ok'

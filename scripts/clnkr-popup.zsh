@@ -55,6 +55,14 @@ truthy() {
   esac
 }
 
+clnkr_has_sessions() {
+  emulate -L zsh
+  local output
+
+  output=$(clnkr --list-sessions 2>/dev/null) || return 1
+  [[ -n $output && $output != *"No sessions found"* ]]
+}
+
 shell_quote_words() {
   emulate -L zsh
   local word
@@ -93,7 +101,7 @@ agent_mode() {
   fi
 
   clnkr_argv=(clnkr)
-  if truthy "${TMUX_CLNKR_RESUME:-off}"; then
+  if truthy "${TMUX_CLNKR_RESUME:-off}" && clnkr_has_sessions; then
     clnkr_argv+=(--continue)
   fi
   if truthy "${TMUX_CLNKR_FULL_SEND:-off}"; then
@@ -260,7 +268,7 @@ open_popup() {
     return 0
   fi
 
-  tmux has-session -t "$session_name" 2>/dev/null
+  return 0
 }
 
 main() {
