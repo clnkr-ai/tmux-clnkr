@@ -102,11 +102,11 @@ wait_for 'agent did not start from prefix+A' agent_has_live_pane
 
 [[ $(tmux_test show-option -t __clnkr_agent -qv status) == off ]] || fail 'agent status is not off'
 [[ $(tmux_test show-option -t __clnkr_agent -qv prefix) == C-b ]] || fail 'agent prefix is not C-b'
+[[ $(tmux_test show-option -t __clnkr_agent -qv remain-on-exit) == on ]] || fail 'agent remain-on-exit is not on'
 tmux_test list-keys -T root C-g | rg -Fq '#{client_session},__clnkr_agent' || fail 'C-g binding is not scoped to agent session'
 tmux_test list-keys -T root C-g | rg -Fq 'detach-client' || fail 'C-g is not bound to detach-client'
 tmux_test capture-pane -pt __clnkr_agent -S -5 | rg -Fq 'fake-clnkr args= model=gpt-5.5' || fail 'agent did not receive model'
 
-tmux_test set-option -t __clnkr_agent remain-on-exit on
 tmux_test send-keys -t __clnkr_agent C-c
 wait_for 'agent pane did not die after C-c' agent_has_dead_pane
 

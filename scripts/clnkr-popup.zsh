@@ -238,6 +238,7 @@ ensure_agent_session() {
 
   tmux set-option -t "$session_name" status off
   tmux set-option -t "$session_name" prefix C-b
+  tmux set-option -t "$session_name" remain-on-exit on
   tmux bind-key -n "$close_key" if-shell -F "#{==:#{client_session},$session_name}" 'detach-client' "send-keys $close_key"
   tmux set-option -gq @clnkr-popup-resume-next on
 
