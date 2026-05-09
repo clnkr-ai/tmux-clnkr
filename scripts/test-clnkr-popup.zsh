@@ -61,6 +61,12 @@ agent_has_dead_pane() {
   tmux_test list-panes -t __clnkr_agent -F '#{pane_dead}' 2>/dev/null | rg -qx '1'
 }
 
+agent_output_has() {
+  local pattern=$1
+
+  tmux_test capture-pane -pt __clnkr_agent -S -20 2>/dev/null | rg -Fq "$pattern"
+}
+
 trap cleanup EXIT
 
 mkdir -p "$fakebin"
@@ -79,6 +85,10 @@ mkdir -p "$fakebin"
   print -r -- 'fi'
   print -r -- 'if [[ ${TMUX_CLNKR_FAKE_NO_SESSIONS:-off} == on && $* == --continue ]]; then'
   print -r -- '  print -u2 -r -- "Error: no session found for this project."'
+  print -r -- '  exit 1'
+  print -r -- 'fi'
+  print -r -- 'if [[ ${TMUX_CLNKR_FAKE_EXIT:-off} == on ]]; then'
+  print -r -- '  print -u2 -r -- "fake-clnkr startup failed"'
   print -r -- '  exit 1'
   print -r -- 'fi'
   print -r -- 'trap "exit 0" INT TERM'
@@ -105,21 +115,28 @@ wait_for 'agent did not start from prefix+A' agent_has_live_pane
 [[ $(tmux_test show-option -t __clnkr_agent -qv remain-on-exit) == on ]] || fail 'agent remain-on-exit is not on'
 tmux_test list-keys -T root C-g | rg -Fq '#{client_session},__clnkr_agent' || fail 'C-g binding is not scoped to agent session'
 tmux_test list-keys -T root C-g | rg -Fq 'detach-client' || fail 'C-g is not bound to detach-client'
-tmux_test capture-pane -pt __clnkr_agent -S -5 | rg -Fq 'fake-clnkr args= model=gpt-5.5' || fail 'agent did not receive model'
+wait_for 'agent did not receive model' agent_output_has 'fake-clnkr args= model=gpt-5.5'
 
 tmux_test send-keys -t __clnkr_agent C-c
 wait_for 'agent pane did not die after C-c' agent_has_dead_pane
 
 open_popup
 wait_for 'dead agent was not recreated from prefix+A' agent_has_live_pane
-tmux_test capture-pane -pt __clnkr_agent -S -5 | rg -Fq 'fake-clnkr args=--continue model=gpt-5.5' || fail 'recreated agent did not resume'
+wait_for 'recreated agent did not resume' agent_output_has 'fake-clnkr args=--continue model=gpt-5.5'
 
 tmux_test kill-session -t __clnkr_agent
 tmux_test set-environment -g TMUX_CLNKR_FAKE_NO_SESSIONS on
 open_popup
 wait_for 'agent did not fall back after missing resume session' agent_has_live_pane
-tmux_test capture-pane -pt __clnkr_agent -S -5 | rg -Fq 'fake-clnkr args= model=gpt-5.5' || fail 'agent did not fall back to plain clnkr'
+wait_for 'agent did not fall back to plain clnkr' agent_output_has 'fake-clnkr args= model=gpt-5.5'
 tmux_test set-environment -gu TMUX_CLNKR_FAKE_NO_SESSIONS
+
+tmux_test kill-session -t __clnkr_agent
+tmux_test set-environment -g TMUX_CLNKR_FAKE_EXIT on
+open_popup
+wait_for 'agent session disappeared after fast startup failure' agent_has_live_pane
+wait_for 'startup failure was not visible' agent_output_has 'fake-clnkr startup failed'
+tmux_test set-environment -gu TMUX_CLNKR_FAKE_EXIT
 
 tmux_test kill-session -t __clnkr_agent
 tmux_test run-shell -b "sleep 0.2; tmux -L $server -f /dev/null kill-session -t __clnkr_agent"

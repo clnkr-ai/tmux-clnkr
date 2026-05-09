@@ -231,7 +231,7 @@ ensure_agent_session() {
   env_file=$(write_agent_env_file "$resume")
   command_line=$(shell_quote_words "$SCRIPT_PATH" --agent "$env_file")
 
-  if ! tmux new-session -d -s "$session_name" -c "$working_dir" "$command_line"; then
+  if ! tmux new-session -d -s "$session_name" -c "$working_dir"; then
     rm -f "$env_file"
     return 1
   fi
@@ -241,6 +241,7 @@ ensure_agent_session() {
   tmux set-option -t "$session_name" remain-on-exit on
   tmux bind-key -n "$close_key" if-shell -F "#{==:#{client_session},$session_name}" 'detach-client' "send-keys $close_key"
   tmux set-option -gq @clnkr-popup-resume-next on
+  tmux send-keys -t "$session_name" "exec $command_line" C-m
 
   print -r -- "$session_name"
 }
