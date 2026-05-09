@@ -119,7 +119,7 @@ agent_mode() {
 
   print -u2 -r -- "tmux-clnkr: clnkr exited with status $exit_status."
   print -u2 -r -- 'Close this shell; prefix-A will recreate the clnkr popup.'
-  exec ${SHELL:-zsh}
+  exec zsh -f
 }
 
 append_export() {
