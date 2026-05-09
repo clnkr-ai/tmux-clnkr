@@ -15,6 +15,16 @@ get_tmux_option() {
   print -r -- "${value:-$fallback}"
 }
 
+get_tmux_environment() {
+  emulate -L zsh
+  local name=$1
+  local value
+
+  value=$(tmux show-environment -gq "$name" 2>/dev/null) || return 0
+  [[ $value == "$name="* ]] || return 0
+  print -r -- "${value#*=}"
+}
+
 show_status_message() {
   emulate -L zsh
   local message=$1
@@ -137,6 +147,8 @@ write_agent_env_file() {
   local resume=${1:-off}
   local env_file full_send provider_source
   local opt_api_key opt_base_url opt_provider opt_provider_api opt_model
+  local tmux_api_key tmux_base_url tmux_provider tmux_provider_api
+  local tmux_anthropic_api_key tmux_anthropic_base_url tmux_openai_api_key tmux_openai_base_url
   local api_key base_url model
 
   env_file=$(mktemp "${TMPDIR:-/tmp}/tmux-clnkr-env.XXXXXX")
@@ -148,6 +160,14 @@ write_agent_env_file() {
   opt_provider=$(get_tmux_option '@clnkr-popup-provider' '')
   opt_provider_api=$(get_tmux_option '@clnkr-popup-provider-api' '')
   opt_model=$(get_tmux_option '@clnkr-popup-model' '')
+  tmux_api_key=$(get_tmux_environment CLNKR_API_KEY)
+  tmux_base_url=$(get_tmux_environment CLNKR_BASE_URL)
+  tmux_provider=$(get_tmux_environment CLNKR_PROVIDER)
+  tmux_provider_api=$(get_tmux_environment CLNKR_PROVIDER_API)
+  tmux_anthropic_api_key=$(get_tmux_environment ANTHROPIC_API_KEY)
+  tmux_anthropic_base_url=$(get_tmux_environment ANTHROPIC_BASE_URL)
+  tmux_openai_api_key=$(get_tmux_environment OPENAI_API_KEY)
+  tmux_openai_base_url=$(get_tmux_environment OPENAI_BASE_URL)
 
   {
     print -r -- "typeset -gx TMUX_CLNKR_FULL_SEND=$(printf '%q' "$full_send")"
@@ -161,39 +181,39 @@ write_agent_env_file() {
   provider_source=none
 
   if [[ -z $api_key ]]; then
-    api_key=${CLNKR_API_KEY:-}
+    api_key=${CLNKR_API_KEY:-$tmux_api_key}
   fi
   if [[ -z $base_url ]]; then
-    base_url=${CLNKR_BASE_URL:-}
+    base_url=${CLNKR_BASE_URL:-$tmux_base_url}
   fi
 
   if [[ -z $api_key && -z $base_url ]]; then
-    if [[ -n ${ANTHROPIC_API_KEY:-} ]]; then
+    if [[ -n ${ANTHROPIC_API_KEY:-$tmux_anthropic_api_key} ]]; then
       provider_source=anthropic
-    elif [[ -n ${OPENAI_API_KEY:-} ]]; then
+    elif [[ -n ${OPENAI_API_KEY:-$tmux_openai_api_key} ]]; then
       provider_source=openai
-    elif [[ -n ${ANTHROPIC_BASE_URL:-} ]]; then
+    elif [[ -n ${ANTHROPIC_BASE_URL:-$tmux_anthropic_base_url} ]]; then
       provider_source=anthropic
-    elif [[ -n ${OPENAI_BASE_URL:-} ]]; then
+    elif [[ -n ${OPENAI_BASE_URL:-$tmux_openai_base_url} ]]; then
       provider_source=openai
     fi
   fi
 
   case $provider_source in
     anthropic)
-      [[ -n $api_key ]] || api_key=${ANTHROPIC_API_KEY:-}
-      [[ -n $base_url ]] || base_url=${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
+      [[ -n $api_key ]] || api_key=${ANTHROPIC_API_KEY:-$tmux_anthropic_api_key}
+      [[ -n $base_url ]] || base_url=${ANTHROPIC_BASE_URL:-${tmux_anthropic_base_url:-https://api.anthropic.com}}
       ;;
     openai)
-      [[ -n $api_key ]] || api_key=${OPENAI_API_KEY:-}
-      [[ -n $base_url ]] || base_url=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      [[ -n $api_key ]] || api_key=${OPENAI_API_KEY:-$tmux_openai_api_key}
+      [[ -n $base_url ]] || base_url=${OPENAI_BASE_URL:-${tmux_openai_base_url:-https://api.openai.com/v1}}
       ;;
   esac
 
-  if [[ -n $api_key && -z $base_url && $api_key == ${ANTHROPIC_API_KEY:-__tmux_clnkr_no_anthropic_key__} ]]; then
-    base_url=${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
-  elif [[ -n $api_key && -z $base_url && $api_key == ${OPENAI_API_KEY:-__tmux_clnkr_no_openai_key__} ]]; then
-    base_url=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+  if [[ -n $api_key && -z $base_url && $api_key == ${ANTHROPIC_API_KEY:-${tmux_anthropic_api_key:-__tmux_clnkr_no_anthropic_key__}} ]]; then
+    base_url=${ANTHROPIC_BASE_URL:-${tmux_anthropic_base_url:-https://api.anthropic.com}}
+  elif [[ -n $api_key && -z $base_url && $api_key == ${OPENAI_API_KEY:-${tmux_openai_api_key:-__tmux_clnkr_no_openai_key__}} ]]; then
+    base_url=${OPENAI_BASE_URL:-${tmux_openai_base_url:-https://api.openai.com/v1}}
   fi
 
   if [[ -z $model ]]; then
@@ -208,10 +228,14 @@ write_agent_env_file() {
     append_export "$env_file" CLNKR_PROVIDER "$opt_provider"
   elif [[ -n ${CLNKR_PROVIDER:-} ]]; then
     append_export "$env_file" CLNKR_PROVIDER "$CLNKR_PROVIDER"
+  elif [[ -n $tmux_provider ]]; then
+    append_export "$env_file" CLNKR_PROVIDER "$tmux_provider"
   fi
 
   if [[ -n $opt_provider_api && $opt_provider_api != auto ]]; then
     append_export "$env_file" CLNKR_PROVIDER_API "$opt_provider_api"
+  elif [[ -n $tmux_provider_api ]]; then
+    append_export "$env_file" CLNKR_PROVIDER_API "$tmux_provider_api"
   else
     print -r -- "unset CLNKR_PROVIDER_API" >>"$env_file"
   fi

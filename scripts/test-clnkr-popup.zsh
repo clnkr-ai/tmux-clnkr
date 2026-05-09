@@ -53,6 +53,13 @@ open_popup_sync() {
   tmux_test run-shell "TMUX_CLNKR_CLIENT=$client_name $repo_root/scripts/clnkr-popup.zsh"
 }
 
+open_popup_without_provider_env() {
+  local client_name
+
+  client_name=$(tmux_test list-clients -F '#{client_name}' | head -n 1)
+  tmux_test run-shell -b "env -u CLNKR_API_KEY -u CLNKR_BASE_URL -u CLNKR_PROVIDER -u CLNKR_PROVIDER_API -u OPENAI_API_KEY -u OPENAI_BASE_URL TMUX_CLNKR_CLIENT=$client_name $repo_root/scripts/clnkr-popup.zsh"
+}
+
 agent_has_live_pane() {
   tmux_test list-panes -t __clnkr_agent -F '#{pane_dead}' 2>/dev/null | rg -qx '0'
 }
@@ -70,7 +77,7 @@ mkdir -p "$fakebin"
   print -r -- '#!/usr/bin/env zsh'
   print -r -- 'emulate -L zsh'
   print -r -- 'set -eu'
-  print -r -- 'print -r -- "fake-clnkr args=$* model=${CLNKR_MODEL:-}"'
+  print -r -- 'print -r -- "fake-clnkr args=$* model=${CLNKR_MODEL:-} key=${CLNKR_API_KEY:+set} provider=${CLNKR_PROVIDER:-} provider_api=${CLNKR_PROVIDER_API:-}"'
   print -r -- 'if [[ $* == --list-sessions ]]; then'
   print -r -- '  if [[ ${TMUX_CLNKR_FAKE_NO_SESSIONS:-off} == on ]]; then'
   print -r -- '    print -r -- "No sessions found for this project."'
@@ -96,6 +103,8 @@ PATH="$fakebin:$PATH" tmux_test new-session -d -s outer -c "$repo_root" zsh
 tmux_test set-environment -g PATH "$fakebin:$PATH"
 tmux_test set-option -g prefix C-a
 tmux_test set-option -g @clnkr-popup-model gpt-5.5
+tmux_test set-environment -g OPENAI_API_KEY tmux-openai-key
+tmux_test set-environment -g OPENAI_BASE_URL https://api.openai.com/v1
 tmux_test run-shell "$repo_root/tmux-clnkr.tmux"
 
 TERM=xterm-256color script -qfec "tmux -L $server -f /dev/null attach-session -t outer" /dev/null >/dev/null 2>&1 &
@@ -114,6 +123,11 @@ tmux_test list-keys -T root C-g | rg -Fq 'detach-client' || fail 'C-g is not bou
 wait_for 'agent did not receive model' agent_output_has 'fake-clnkr args= model=gpt-5.5'
 tmux_test capture-pane -pt __clnkr_agent -S -20 | rg -Fq 'clnkr-popup.zsh --agent' && fail 'agent command leaked into popup'
 tmux_test capture-pane -pt __clnkr_agent -S -20 | rg -Fq '/tmp/tmux-clnkr-env' && fail 'agent env file leaked into popup'
+
+tmux_test kill-session -t __clnkr_agent
+open_popup_without_provider_env
+wait_for 'agent did not read tmux provider environment' agent_has_live_pane
+wait_for 'agent did not receive tmux API key' agent_output_has 'key=set'
 
 tmux_test kill-session -t __clnkr_agent
 open_popup
