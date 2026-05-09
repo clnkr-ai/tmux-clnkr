@@ -94,7 +94,8 @@ mkdir -p "$fakebin"
   print -r -- '  print -u2 -r -- "fake-clnkr startup failed"'
   print -r -- '  exit 1'
   print -r -- 'fi'
-  print -r -- 'trap "exit 0" INT TERM'
+  print -r -- 'trap "exit 130" INT'
+  print -r -- 'trap "exit 0" TERM'
   print -r -- 'while true; do sleep 1; done'
 } >"$fakebin/clnkr"
 chmod +x "$fakebin/clnkr"
@@ -123,6 +124,14 @@ tmux_test list-keys -T root C-g | rg -Fq 'detach-client' || fail 'C-g is not bou
 wait_for 'agent did not receive model' agent_output_has 'fake-clnkr args= model=gpt-5.5'
 tmux_test capture-pane -pt __clnkr_agent -S -20 | rg -Fq 'clnkr-popup.zsh --agent' && fail 'agent command leaked into popup'
 tmux_test capture-pane -pt __clnkr_agent -S -20 | rg -Fq '/tmp/tmux-clnkr-env' && fail 'agent env file leaked into popup'
+
+tmux_test send-keys -t __clnkr_agent C-c
+wait_for 'ctrl-c did not leave exit message visible' agent_output_has 'tmux-clnkr: clnkr exited with status 130.'
+[[ $(tmux_test list-panes -t __clnkr_agent -F '#{pane_dead}') == 0 ]] || fail 'ctrl-c killed the wrapper pane'
+[[ $(tmux_test show-option -gqv @clnkr-popup-agent-state) == exited ]] || fail 'ctrl-c did not mark agent exited'
+open_popup
+wait_for 'ctrl-c session was not recreated from prefix+A' agent_has_live_pane
+wait_for 'recreated agent after ctrl-c did not resume' agent_output_has 'fake-clnkr args=--continue model=gpt-5.5'
 
 tmux_test kill-session -t __clnkr_agent
 open_popup_without_provider_env

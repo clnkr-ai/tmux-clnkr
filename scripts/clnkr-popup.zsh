@@ -122,9 +122,11 @@ agent_mode() {
     clnkr_argv+=(--full-send)
   fi
 
+  trap : INT
   tmux set-option -gq @clnkr-popup-agent-state running 2>/dev/null || true
   "${clnkr_argv[@]}"
   exit_status=$?
+  trap - INT
   tmux set-option -gq @clnkr-popup-agent-state exited 2>/dev/null || true
 
   print -u2 -r -- "tmux-clnkr: clnkr exited with status $exit_status."
