@@ -57,10 +57,6 @@ agent_has_live_pane() {
   tmux_test list-panes -t __clnkr_agent -F '#{pane_dead}' 2>/dev/null | rg -qx '0'
 }
 
-agent_has_dead_pane() {
-  tmux_test list-panes -t __clnkr_agent -F '#{pane_dead}' 2>/dev/null | rg -qx '1'
-}
-
 agent_output_has() {
   local pattern=$1
 
@@ -116,10 +112,10 @@ wait_for 'agent did not start from prefix+A' agent_has_live_pane
 tmux_test list-keys -T root C-g | rg -Fq '#{client_session},__clnkr_agent' || fail 'C-g binding is not scoped to agent session'
 tmux_test list-keys -T root C-g | rg -Fq 'detach-client' || fail 'C-g is not bound to detach-client'
 wait_for 'agent did not receive model' agent_output_has 'fake-clnkr args= model=gpt-5.5'
+tmux_test capture-pane -pt __clnkr_agent -S -20 | rg -Fq 'clnkr-popup.zsh --agent' && fail 'agent command leaked into popup'
+tmux_test capture-pane -pt __clnkr_agent -S -20 | rg -Fq '/tmp/tmux-clnkr-env' && fail 'agent env file leaked into popup'
 
-tmux_test send-keys -t __clnkr_agent C-c
-wait_for 'agent pane did not die after C-c' agent_has_dead_pane
-
+tmux_test kill-session -t __clnkr_agent
 open_popup
 wait_for 'dead agent was not recreated from prefix+A' agent_has_live_pane
 wait_for 'recreated agent did not resume' agent_output_has 'fake-clnkr args=--continue model=gpt-5.5'

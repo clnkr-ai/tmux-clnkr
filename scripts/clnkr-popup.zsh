@@ -75,7 +75,10 @@ shell_quote_words() {
 session_has_live_pane() {
   emulate -L zsh
   local session_name=$1
-  local dead
+  local dead state
+
+  state=$(tmux show-option -gqv @clnkr-popup-agent-state)
+  [[ $state == running ]] || return 1
 
   for dead in ${(f)"$(tmux list-panes -t "$session_name" -F '#{pane_dead}' 2>/dev/null)"}; do
     [[ $dead == 0 ]] && return 0
@@ -87,6 +90,7 @@ session_has_live_pane() {
 agent_mode() {
   emulate -L zsh
   local env_file=${1:-}
+  local exit_status
   local -a clnkr_argv
 
   if [[ -n $env_file && -f $env_file ]]; then
@@ -108,7 +112,14 @@ agent_mode() {
     clnkr_argv+=(--full-send)
   fi
 
-  exec "${clnkr_argv[@]}"
+  tmux set-option -gq @clnkr-popup-agent-state running 2>/dev/null || true
+  "${clnkr_argv[@]}"
+  exit_status=$?
+  tmux set-option -gq @clnkr-popup-agent-state exited 2>/dev/null || true
+
+  print -u2 -r -- "tmux-clnkr: clnkr exited with status $exit_status."
+  print -u2 -r -- 'Close this shell; prefix-A will recreate the clnkr popup.'
+  exec ${SHELL:-zsh}
 }
 
 append_export() {
@@ -230,8 +241,10 @@ ensure_agent_session() {
 
   env_file=$(write_agent_env_file "$resume")
   command_line=$(shell_quote_words "$SCRIPT_PATH" --agent "$env_file")
+  tmux set-option -gq @clnkr-popup-agent-state starting
 
-  if ! tmux new-session -d -s "$session_name" -c "$working_dir"; then
+  if ! tmux new-session -d -s "$session_name" -c "$working_dir" "$command_line"; then
+    tmux set-option -gq @clnkr-popup-agent-state exited
     rm -f "$env_file"
     return 1
   fi
@@ -241,7 +254,6 @@ ensure_agent_session() {
   tmux set-option -t "$session_name" remain-on-exit on
   tmux bind-key -n "$close_key" if-shell -F "#{==:#{client_session},$session_name}" 'detach-client' "send-keys $close_key"
   tmux set-option -gq @clnkr-popup-resume-next on
-  tmux send-keys -t "$session_name" "exec $command_line" C-m
 
   print -r -- "$session_name"
 }
