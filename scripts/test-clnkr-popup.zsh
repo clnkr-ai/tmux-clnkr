@@ -173,8 +173,7 @@ tmux_test set-environment -gu TMUX_CLNKR_FAKE_NO_SESSIONS
 tmux_test kill-session -t __clnkr_agent
 tmux_test set-environment -g TMUX_CLNKR_FAKE_EXIT on
 open_popup
-wait_for 'agent session disappeared after fast startup failure' agent_has_live_pane
-wait_for 'startup failure was not visible' agent_output_has 'fake-clnkr startup failed'
+wait_for 'startup failure did not mark agent exited' test_agent_exited
 tmux_test set-environment -gu TMUX_CLNKR_FAKE_EXIT
 
 tmux_test kill-session -t __clnkr_agent
