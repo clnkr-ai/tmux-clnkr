@@ -61,7 +61,7 @@ mkdir -p "$fakebin"
   print -r -- '#!/usr/bin/env zsh'
   print -r -- 'emulate -L zsh'
   print -r -- 'set -eu'
-  print -r -- 'print -r -- "fake-clnkr model=${CLNKR_MODEL:-}"'
+  print -r -- 'print -r -- "fake-clnkr args=$* model=${CLNKR_MODEL:-}"'
   print -r -- 'trap "exit 0" INT TERM'
   print -r -- 'while true; do sleep 1; done'
 } >"$fakebin/clnkr"
@@ -85,7 +85,7 @@ wait_for 'agent did not start from prefix+A' agent_has_live_pane
 [[ $(tmux_test show-option -t __clnkr_agent -qv prefix) == C-g ]] || fail 'agent prefix is not C-g'
 tmux_test list-keys -T root C-g | rg -Fq '#{client_session},__clnkr_agent' || fail 'C-g binding is not scoped to agent session'
 tmux_test list-keys -T root C-g | rg -Fq 'detach-client' || fail 'C-g is not bound to detach-client'
-tmux_test capture-pane -pt __clnkr_agent -S -5 | rg -Fq 'fake-clnkr model=gpt-5.5' || fail 'agent did not receive model'
+tmux_test capture-pane -pt __clnkr_agent -S -5 | rg -Fq 'fake-clnkr args= model=gpt-5.5' || fail 'agent did not receive model'
 
 tmux_test set-option -t __clnkr_agent remain-on-exit on
 tmux_test send-keys -t __clnkr_agent C-c
@@ -93,5 +93,6 @@ wait_for 'agent pane did not die after C-c' agent_has_dead_pane
 
 open_popup
 wait_for 'dead agent was not recreated from prefix+A' agent_has_live_pane
+tmux_test capture-pane -pt __clnkr_agent -S -5 | rg -Fq 'fake-clnkr args=--continue model=gpt-5.5' || fail 'recreated agent did not resume'
 
 print -r -- 'ok'

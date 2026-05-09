@@ -93,6 +93,9 @@ agent_mode() {
   fi
 
   clnkr_argv=(clnkr)
+  if truthy "${TMUX_CLNKR_RESUME:-off}"; then
+    clnkr_argv+=(--continue)
+  fi
   if truthy "${TMUX_CLNKR_FULL_SEND:-off}"; then
     clnkr_argv+=(--full-send)
   fi
@@ -112,6 +115,7 @@ append_export() {
 
 write_agent_env_file() {
   emulate -L zsh
+  local resume=${1:-off}
   local env_file full_send provider_source
   local opt_api_key opt_base_url opt_provider opt_provider_api opt_model
   local api_key base_url model
@@ -128,6 +132,7 @@ write_agent_env_file() {
 
   {
     print -r -- "typeset -gx TMUX_CLNKR_FULL_SEND=$(printf '%q' "$full_send")"
+    print -r -- "typeset -gx TMUX_CLNKR_RESUME=$(printf '%q' "$resume")"
   } >"$env_file"
   append_export "$env_file" PATH "$PATH"
 
@@ -197,11 +202,12 @@ write_agent_env_file() {
 
 ensure_agent_session() {
   emulate -L zsh
-  local session_name working_dir env_file command_line close_key
+  local session_name working_dir env_file command_line close_key resume
 
   session_name=$(get_tmux_option '@clnkr-popup-session-name' '__clnkr_agent')
   working_dir=$(get_tmux_option '@clnkr-popup-working-dir' '~')
   close_key=$(get_tmux_option '@clnkr-popup-close-key' 'C-g')
+  resume=$(get_tmux_option '@clnkr-popup-resume-next' 'off')
   working_dir=${~working_dir}
 
   if tmux has-session -t "$session_name" 2>/dev/null; then
@@ -211,9 +217,10 @@ ensure_agent_session() {
     fi
 
     tmux kill-session -t "$session_name" 2>/dev/null || true
+    resume=on
   fi
 
-  env_file=$(write_agent_env_file)
+  env_file=$(write_agent_env_file "$resume")
   command_line=$(shell_quote_words "$SCRIPT_PATH" --agent "$env_file")
 
   if ! tmux new-session -d -s "$session_name" -c "$working_dir" "$command_line"; then
@@ -224,6 +231,7 @@ ensure_agent_session() {
   tmux set-option -t "$session_name" status off
   tmux set-option -t "$session_name" prefix "$close_key"
   tmux bind-key -n "$close_key" if-shell -F "#{==:#{client_session},$session_name}" 'detach-client' "send-keys $close_key"
+  tmux set-option -gq @clnkr-popup-resume-next on
 
   print -r -- "$session_name"
 }
