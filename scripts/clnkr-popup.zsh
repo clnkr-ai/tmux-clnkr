@@ -85,13 +85,17 @@ shell_quote_words() {
 session_has_live_pane() {
   emulate -L zsh
   local session_name=$1
-  local dead state
+  local pane state
+  local pane_dead pane_pid
 
   state=$(tmux show-option -gqv @clnkr-popup-agent-state)
   [[ $state == running ]] || return 1
 
-  for dead in ${(f)"$(tmux list-panes -t "$session_name" -F '#{pane_dead}' 2>/dev/null)"}; do
-    [[ $dead == 0 ]] && return 0
+  for pane in ${(f)"$(tmux list-panes -t "$session_name" -F '#{pane_dead} #{pane_pid}' 2>/dev/null)"}; do
+    pane_dead=${pane%% *}
+    pane_pid=${pane#* }
+    [[ $pane_dead == 0 ]] || continue
+    pgrep -P "$pane_pid" -x clnkr >/dev/null 2>&1 && return 0
   done
 
   return 1

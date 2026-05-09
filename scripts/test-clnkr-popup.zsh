@@ -133,6 +133,13 @@ open_popup
 wait_for 'ctrl-c session was not recreated from prefix+A' agent_has_live_pane
 wait_for 'recreated agent after ctrl-c did not resume' agent_output_has 'fake-clnkr args=--continue model=gpt-5.5'
 
+tmux_test send-keys -t __clnkr_agent C-c
+wait_for 'stale wrapper did not show exit message' agent_output_has 'tmux-clnkr: clnkr exited with status 130.'
+tmux_test set-option -gq @clnkr-popup-agent-state running
+open_popup
+wait_for 'stale running wrapper was not recreated from prefix+A' agent_has_live_pane
+wait_for 'recreated agent after stale running wrapper did not resume' agent_output_has 'fake-clnkr args=--continue model=gpt-5.5'
+
 tmux_test kill-session -t __clnkr_agent
 open_popup_without_provider_env
 wait_for 'agent did not read tmux provider environment' agent_has_live_pane
