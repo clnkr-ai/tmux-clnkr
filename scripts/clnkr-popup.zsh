@@ -227,7 +227,11 @@ open_popup() {
 
   client_flag=(-c "$client_name")
 
-  tmux display-popup "${client_flag[@]}" -T 'clnkr' -w "$width" -h "$height" -E "$attach_command"
+  if tmux display-popup "${client_flag[@]}" -T 'clnkr' -w "$width" -h "$height" -E "$attach_command"; then
+    return 0
+  fi
+
+  tmux has-session -t "$session_name" 2>/dev/null
 }
 
 main() {
