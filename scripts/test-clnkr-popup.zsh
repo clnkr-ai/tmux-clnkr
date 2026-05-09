@@ -61,7 +61,7 @@ open_popup_without_provider_env() {
   local client_name
 
   client_name=$(tmux_test list-clients -F '#{client_name}' | head -n 1)
-  tmux_test run-shell -b "env -u CLNKR_API_KEY -u CLNKR_BASE_URL -u CLNKR_PROVIDER -u CLNKR_PROVIDER_API -u OPENAI_API_KEY -u OPENAI_BASE_URL TMUX_CLNKR_CLIENT=$client_name $repo_root/scripts/clnkr-popup.zsh"
+  tmux_test run-shell -b "env -i PATH=$fakebin:/usr/bin:/bin TMUX_CLNKR_CLIENT=$client_name $repo_root/scripts/clnkr-popup.zsh"
 }
 
 agent_has_live_pane() {

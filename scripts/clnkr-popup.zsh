@@ -20,7 +20,7 @@ get_tmux_environment() {
   local name=$1
   local value
 
-  value=$(tmux show-environment -gq "$name" 2>/dev/null) || return 0
+  value=$(tmux show-environment -g "$name" 2>/dev/null) || return 0
   [[ $value == "$name="* ]] || return 0
   print -r -- "${value#*=}"
 }
