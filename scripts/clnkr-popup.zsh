@@ -64,6 +64,18 @@ shell_quote_words() {
   done
 }
 
+session_has_live_pane() {
+  emulate -L zsh
+  local session_name=$1
+  local dead
+
+  for dead in ${(f)"$(tmux list-panes -t "$session_name" -F '#{pane_dead}' 2>/dev/null)"}; do
+    [[ $dead == 0 ]] && return 0
+  done
+
+  return 1
+}
+
 agent_mode() {
   emulate -L zsh
   local env_file=${1:-}
@@ -185,15 +197,20 @@ write_agent_env_file() {
 
 ensure_agent_session() {
   emulate -L zsh
-  local session_name working_dir env_file command_line
+  local session_name working_dir env_file command_line close_key
 
   session_name=$(get_tmux_option '@clnkr-popup-session-name' '__clnkr_agent')
   working_dir=$(get_tmux_option '@clnkr-popup-working-dir' '~')
+  close_key=$(get_tmux_option '@clnkr-popup-close-key' 'C-g')
   working_dir=${~working_dir}
 
   if tmux has-session -t "$session_name" 2>/dev/null; then
-    print -r -- "$session_name"
-    return 0
+    if session_has_live_pane "$session_name"; then
+      print -r -- "$session_name"
+      return 0
+    fi
+
+    tmux kill-session -t "$session_name" 2>/dev/null || true
   fi
 
   env_file=$(write_agent_env_file)
@@ -203,6 +220,10 @@ ensure_agent_session() {
     rm -f "$env_file"
     return 1
   fi
+
+  tmux set-option -t "$session_name" status off
+  tmux set-option -t "$session_name" prefix "$close_key"
+  tmux bind-key -n "$close_key" if-shell -F "#{==:#{client_session},$session_name}" 'detach-client' "send-keys $close_key"
 
   print -r -- "$session_name"
 }

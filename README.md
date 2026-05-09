@@ -26,7 +26,9 @@ Press `prefix + A`.
 
 The plugin creates a hidden tmux session and starts `clnkr` there. Reopening the popup returns to the same chat.
 
-The popup attaches a nested tmux client to the hidden agent session. Detach from that nested client to close the popup while leaving clnkr running. With the default tmux prefix, that is usually `prefix + d` inside the popup.
+The popup attaches a nested tmux client to the hidden agent session. Press `C-g` to close the popup while leaving clnkr running.
+
+If `clnkr` exits and leaves a dead hidden pane behind, reopening the popup recreates the hidden session.
 
 ## Configuration
 
@@ -39,6 +41,7 @@ set -g @clnkr-popup-width '80%'
 set -g @clnkr-popup-height '80%'
 set -g @clnkr-popup-working-dir '~'
 set -g @clnkr-popup-full-send 'off'
+set -g @clnkr-popup-close-key 'C-g'
 ```
 
 Disable the default binding:
