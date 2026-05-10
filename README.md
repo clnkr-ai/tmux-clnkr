@@ -1,5 +1,7 @@
 # tmux-clnkr
 
+<img width="1388" height="826" alt="alacritty-2026-05-09-220219" src="https://github.com/user-attachments/assets/a587bd2b-27c9-48de-a510-93114115861e" />
+
 Persistent clnkr chat in a tmux popup.
 
 Press `prefix + A` to open one global clnkr agent session. Closing the popup leaves the agent running. Reopen the popup to return to the same chat.
